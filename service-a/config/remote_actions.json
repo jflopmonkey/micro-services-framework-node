@@ -1,0 +1,9 @@
+{
+  actions: [
+    {
+      name: "tedy",
+      service: "service-b",
+      actionNameInService: "Toto"
+    }
+  ]
+}

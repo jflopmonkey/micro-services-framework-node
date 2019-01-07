@@ -1,38 +1,51 @@
+const getTrace = require('./stackTraceDiscovery');
+
 module.exports = class ExecutionContext {
-    constructor(registry) {
-        this.registry = registry;
-        this.subContexts = [];
-    }
-
-    requireAction(actionName) {
-        const action = this.registry.getAction(actionName);
-        const actionFunc = async (params) => {
-            const subContext = new ExecutionContext(this.registry);
-            subContext.actionName = actionName;
-            this.subContexts.push(subContext);
-            subContext.startTime = new Date().getTime();
-            const result =  await action.action(subContext, params);
-            subContext.endTime = new Date().getTime();
-            subContext.duration = subContext.endTime - subContext.startTime;
-            return {result, context: subContext};
-        };
-        return actionFunc;
-    }
-
-    getExecutionTree(node) {
-        let firstCall = false;
-        if (! node) {
-            firstCall = true;
-            node = {subActions:[]};
-        }
-        const actionNode = { actionName: this.actionName, startTime: this.startTime, endTime: this.endTime, duration: this.duration, subActions: []};
-        node.subActions.push(actionNode);
-        this.subContexts.forEach(subContext => {
-            subContext.getExecutionTree(actionNode);
-        });
-
-        if (firstCall){
-            return node.subActions[0];
-        }
-    }
+	constructor(registry) {
+		this.registry = registry;
+		this.execTreeNode = {
+			actionName: null,
+			startTime: null,
+			endTime: null,
+			duration: null,
+			subNodes: []
+		}
+	}
+	
+	requireAction(actionName) {
+		const action = this.registry.getAction(actionName);
+		const actionFunc = async (params) => {
+			const trace = getTrace(actionFunc);
+			
+			const subContext = new ExecutionContext(this.registry);
+			this.execTreeNode.subNodes.push(subContext.execTreeNode);
+			subContext.execTreeNode.actionName = actionName;
+			subContext.execTreeNode.trace = trace;
+			subContext.execTreeNode.startTime = new Date().getTime();
+			let result;
+			try {
+				result = await action.action(subContext, params);
+				subContext.execTreeNode.success = true;
+			} catch (err) {
+				subContext.execTreeNode.success = false;
+				subContext.execTreeNode.error = err.stack;
+			}
+			subContext.execTreeNode.endTime = new Date().getTime();
+			subContext.execTreeNode.duration = subContext.execTreeNode.endTime - subContext.execTreeNode.startTime;
+			if (! subContext.execTreeNode.success ) {
+				const err = new Error("Action execution error");
+				err.stack = "Error: Action execution error\n\t"+trace;
+				err.stack += "\nCaused by: " +  subContext.execTreeNode.error;
+				err.executionContext = subContext;
+				err.reason = subContext.execTreeNode.error;
+				throw err;
+			}
+			return {result, context: subContext};
+		};
+		return actionFunc;
+	}
+	
+	getExecutionTree() {
+		return this.execTreeNode;
+	}
 }
