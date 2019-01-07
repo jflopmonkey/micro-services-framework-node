@@ -9,16 +9,13 @@ module.exports = class ExecutionContext {
         const actionFunc = async (params) => {
             const subContext = new ExecutionContext(this.registry);
             subContext.actionName = actionName;
-            actionFunc.getContext = function() {
-                return subContext; 
-            }
             this.subContexts.push(subContext);
             subContext.startTime = new Date().getTime();
             const result =  await action.action(subContext, params);
             subContext.endTime = new Date().getTime();
             subContext.duration = subContext.endTime - subContext.startTime;
-            return result;
-        }
+            return {result, context: subContext};
+        };
         return actionFunc;
     }
 
