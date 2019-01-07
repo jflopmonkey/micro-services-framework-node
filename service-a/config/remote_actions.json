@@ -1,9 +1,9 @@
 {
-  actions: [
+  "actions": [
     {
-      name: "tedy",
-      service: "service-b",
-      actionNameInService: "Toto"
+      "name": "tedy",
+      "service": "service_b",
+      "actionNameInService": "Toto"
     }
   ]
 }

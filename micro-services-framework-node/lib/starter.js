@@ -1,5 +1,7 @@
 const fs = require("fs");
 const Registry = require('./registry');
+const exposeAPI = require('./actions_api');
+const createRemoteAction = require('./create_remote_action');
 
 function loadActions(mainFolder) {
 	const actions = fs.readdirSync(mainFolder + "/actions");
@@ -14,7 +16,17 @@ function loadActions(mainFolder) {
 	return actionsMap;
 }
 
+function addRemoteActions(mainFolder, actionsMap) {
+	const remoteActionsConfig = require(mainFolder+"/config/remote_actions.json");
+	remoteActionsConfig.actions.map(actionConfig => {
+		actionsMap[actionConfig.name] = createRemoteAction(actionConfig);
+	});
+}
+
 module.exports = function start(mainFolder) {
 	const actionsMap = loadActions(mainFolder);
-	return new Registry(actionsMap);
+	addRemoteActions(mainFolder, actionsMap);
+	const registry = new Registry(actionsMap);
+	exposeAPI(registry, process.env.PORT);
+	return registry;
 };
